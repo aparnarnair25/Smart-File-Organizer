@@ -1,6 +1,11 @@
+import customtkinter as ctk
+from tkinter import filedialog
 import os
 import shutil
 from datetime import datetime
+
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
 FILE_TYPES = {
     "Images": [".jpg", ".jpeg", ".png", ".gif"],
@@ -9,27 +14,50 @@ FILE_TYPES = {
     "Music": [".mp3", ".wav"]
 }
 
-folder_path = input("Enter folder path: ")
+def select_folder():
+    folder = filedialog.askdirectory()
 
-os.makedirs("logs", exist_ok=True)
+    if folder:
+        folder_label.configure(text=folder)
 
-log_file = "logs/activity_log.txt"
+def organize_files():
 
-if os.path.exists(folder_path):
+    folder_path = folder_label.cget("text")
+
+    if folder_path == "No folder selected":
+        status_label.configure(
+            text="Please select a folder"
+        )
+        return
+
+    os.makedirs("logs", exist_ok=True)
+
+    log_file = "logs/activity_log.txt"
 
     files = os.listdir(folder_path)
     total_files = len(files)
-    processed = 0  
+    processed = 0
 
-    print("\nOrganizing files...\n")
+    moved_count = 0
 
-    with open(log_file, "a") as log:
+    stats = {
+        "Images": 0,
+        "Documents": 0,
+        "Videos": 0,
+        "Music": 0,
+        "Others": 0
+    }
+
+    with open(log_file, "a", encoding="utf-8") as log:
 
         log.write(f"\n--- {datetime.now()} ---\n")
 
         for file in files:
 
-            full_path = os.path.join(folder_path, file)
+            full_path = os.path.join(
+                folder_path,
+                file
+            )
 
             if os.path.isfile(full_path):
 
@@ -43,40 +71,127 @@ if os.path.exists(folder_path):
                         category = folder
                         break
 
-                new_folder = os.path.join(folder_path, category)
+                new_folder = os.path.join(
+                    folder_path,
+                    category
+                )
 
-                if not os.path.exists(new_folder):
-                    os.makedirs(new_folder)
+                os.makedirs(
+                    new_folder,
+                    exist_ok=True
+                )
 
-                destination = os.path.join(new_folder, file)
+                destination = os.path.join(
+                    new_folder,
+                    file
+                )
 
                 counter = 1
 
                 while os.path.exists(destination):
 
-                   filename, extension = os.path.splitext(file)
+                    new_name = (
+                        f"{filename}_{counter}{extension}"
+                    )
 
-                   new_name = f"{filename}_{counter}{extension}"
+                    destination = os.path.join(
+                        new_folder,
+                        new_name
+                    )
 
-                   destination = os.path.join(new_folder, new_name)
+                    counter += 1
 
-                   counter += 1
+                shutil.move(
+                    full_path,
+                    destination
+                )
 
-                shutil.move(full_path, destination)
+                log.write(
+                    f"Moved {file} to {category}\n"
+                )
 
-                message = f"Moved {file} → {category}"
-
-                print(message)
+                moved_count += 1
                 processed += 1
 
-                progress = int((processed / total_files) * 10)
+                progress_bar.set(
+                    processed / total_files
+                )
 
-                bar = "█" * progress + "░" * (10 - progress)
+                app.update()
 
-                percent = int((processed / total_files) * 100)
+                stats[category] += 1
 
-                print(f"[{bar}] {percent}%")
-                log.write(message + "\n")
+    status_label.configure(
+        text=f"Done! {moved_count} files organized"
+    )
 
-else:
-    print("Folder not found")
+    stats_label.configure(
+        text=
+        f"Images: {stats['Images']}\n"
+        f"Documents: {stats['Documents']}\n"
+        f"Videos: {stats['Videos']}\n"
+        f"Music: {stats['Music']}\n"
+        f"Others: {stats['Others']}"
+    )
+
+
+app = ctk.CTk()
+
+app.geometry("700x500")
+
+app.title(
+    "Smart File Organizer Pro"
+)
+
+title = ctk.CTkLabel(
+    app,
+    text="Smart File Organizer Pro",
+    font=("Arial",25,"bold")
+)
+
+title.pack(pady=20)
+
+folder_label = ctk.CTkLabel(
+    app,
+    text="No folder selected"
+)
+
+folder_label.pack()
+
+select_button = ctk.CTkButton(
+    app,
+    text="Select Folder",
+    command=select_folder
+)
+
+select_button.pack(pady=10)
+
+organize_button = ctk.CTkButton(
+    app,
+    text="Organize Files",
+    command=organize_files
+)
+
+organize_button.pack(pady=10)
+
+status_label = ctk.CTkLabel(
+    app,
+    text=""
+)
+
+status_label.pack(pady=10)
+
+stats_label = ctk.CTkLabel(
+    app,
+    text="No statistics yet",
+    font=("Arial",14)
+)
+
+stats_label.pack(pady=20)
+
+progress_bar = ctk.CTkProgressBar(app)
+
+progress_bar.pack(pady=10)
+
+progress_bar.set(0)
+app.mainloop()
